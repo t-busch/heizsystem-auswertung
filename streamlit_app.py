@@ -79,7 +79,7 @@ st.markdown("# Auswertung Heizsystem")
 with st.sidebar:
     st.markdown("# Einstellungen")
 
-    st.markdown("## Datei-Upload")
+    st.markdown("## WEM Daten-Upload")
     cols = st.columns(2)
     bk_file = cols[0].file_uploader("Brennwertkessel", type=["csv"], accept_multiple_files=False)
     wp_file = cols[1].file_uploader("Wärmepumpe", type=["csv"], accept_multiple_files=False)
@@ -97,7 +97,6 @@ with st.sidebar:
 if start_analysis:
     df_bk,first_ts_bk, last_ts_bk = process_df(bk_file, start_date, end_date, default_csv_name="WTC_default.csv")
     df_wp, first_ts_wp, last_ts_wp = process_df(wp_file, start_date, end_date, default_csv_name="WWP_default.csv")
-    
 
     cols = st.columns(2)
 
@@ -109,15 +108,12 @@ if start_analysis:
     actual_time_interval(first_ts_bk, last_ts_bk, so=cols[col_index])
     aggregate_data(df_bk, "Istleistung Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_bk, "Wärmeleistung VPT Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
-    
-
 
     # Ausewrtung WP
     col_index=1
     actual_time_interval(first_ts_wp, last_ts_wp, so=cols[col_index])
     aggregate_data(df_wp, "Ist Leistung[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_wp, "Leistungsabgabe[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
-
 
 
     fig = go.Figure()
@@ -186,7 +182,7 @@ if start_analysis:
 
     st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("Rohdaten")
+    st.markdown("### Rohdaten")
     cols = st.columns(2)
     cols[0].write(df_bk)
     cols[1].write(df_wp)
