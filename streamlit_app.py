@@ -65,6 +65,10 @@ def aggregate_data(df, col_name, unit="", aggr_type="sum", so=st):
     so.metric(f"{agg_type_dict.get(aggr_type, '')}: {col_name}", f"{aggr_val} {unit}")
 
 
+def actual_time_interval(first_ts, last_ts, so=st):
+    so.markdown(f"Realer Betrachtungszeitraum: {first_ts.strftime('%d.%m.%Y, %H:%M:%S')} bis {last_ts.strftime('%d.%m.%Y, %H:%M:%S')}")
+
+
 current_year = datetime.datetime.now().year
 
 uploaded_file=None
@@ -82,9 +86,9 @@ with st.sidebar:
 
     st.markdown("## Betrachtungszeitraum")
     cols = st.columns(2)
-    start_date = cols[0].date_input("Start", value=datetime.date(current_year-1, 8, 1))
+    start_date = cols[0].date_input("von", value=datetime.date(current_year-1, 8, 1))
     start_date = datetime.datetime.fromordinal(start_date.toordinal())
-    end_date = cols[1].date_input("Ende", value=datetime.date(current_year, 7, 31))
+    end_date = cols[1].date_input("bis", value=datetime.date(current_year, 7, 31))
     end_date = datetime.datetime.fromordinal(end_date.toordinal())
 
     start_analysis = st.button("Auswertung starten")
@@ -102,20 +106,18 @@ if start_analysis:
 
     # Auswertung BK
     col_index = 0
-    cols[col_index].markdown(f"Erster gemessener Zeitschritt: {first_ts_bk}")
-    cols[col_index].markdown(f"Letzter gemessener Zeitschritt: {last_ts_bk}")
+    actual_time_interval(first_ts_bk, last_ts_bk, so=cols[col_index])
     aggregate_data(df_bk, "Istleistung Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_bk, "Wärmeleistung VPT Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
-    cols[col_index].write(df_bk)
+    
 
 
     # Ausewrtung WP
     col_index=1
-    cols[col_index].markdown(f"Erster gemessener Zeitschritt: {first_ts_wp}")
-    cols[col_index].markdown(f"Letzter gemessener Zeitschritt: {last_ts_wp}")
+    actual_time_interval(first_ts_wp, last_ts_wp, so=cols[col_index])
     aggregate_data(df_wp, "Ist Leistung[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_wp, "Leistungsabgabe[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
-    cols[col_index].write(df_wp)
+
 
 
     fig = go.Figure()
@@ -171,14 +173,19 @@ if start_analysis:
                 #color=FZJcolor.get("black"), 
                 width=2,),
             fillcolor="rgba(0, 0, 0, 0)",
+            visible='legendonly',
         )
     )
 
     fig.update_layout(
-        title=f"Wärmeleistung",
+        title=f"Wärmebereitstellung",
         yaxis_title="Leistung [kW]",
         # yaxis_range=[0, 1200],
         # xaxis_range=[start_date, end_date],
     )
 
     st.plotly_chart(fig, use_container_width=True)
+
+    cols = st.columns(2)
+    cols[0].write(df_bk)
+    cols[1].write(df_wp)
