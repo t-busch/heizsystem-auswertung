@@ -5,37 +5,59 @@ from io import StringIO
 import datetime
 from dateutil import parser
 
-st.markdown("# Auswertung Heizsystem")
+
+st.set_page_config(
+     page_title="WEM Auswertung",
+     page_icon="🔥",
+     layout="wide",
+     initial_sidebar_state="expanded",
+ )
+
+
+
 
 TIME_PER_INTERVAL = 2/3*1/60 # kW in a 40s time interval to kWh 
+
+
+
 
 def create_date_index(df):
     df.index = [parser.parse(f"{row.Date} {row.Time}") for _, row in df.iterrows()]
     return df
 
-def file_to_df(uploaded_file):
+def file_to_df(uploaded_file, default_csv_name):
     bytes_data = uploaded_file.read()
     s=str(bytes_data,'utf-8')
     s = s.replace(",", ".")
     s = s.replace(";", ",")
     data = StringIO(s)
     df=pd.read_csv(data, error_bad_lines=False)
+
+    # Save
+    df.to_csv(default_csv_name)
     return df
 
 def data_in_interval(df, start_date, end_date):
     df = df.loc[df.index>start_date, :]
     df = df.loc[df.index<=end_date, :]
-    return df
 
-def process_df(uploaded_file, start_date, end_date):
-    df = file_to_df(uploaded_file)
+    first_ts = max(min(df.index), start_date)
+    last_ts = min(max(df.index), end_date)
+
+    return df, first_ts, last_ts
+
+def process_df(uploaded_file, start_date, end_date, default_csv_name=None):
+    if uploaded_file is not None:
+        df = file_to_df(uploaded_file, default_csv_name)
+    else:
+        df = pd.read_csv(default_csv_name, index_col=0)
 
     df.fillna(0, inplace=True)
 
     df = create_date_index(df)
 
-    df = data_in_interval(df, start_date, end_date)
-    return df
+    df, first_ts, last_ts = data_in_interval(df, start_date, end_date)
+    return df, first_ts, last_ts
 
 agg_type_dict = {"sum": "Summe", "av": "Mittelwert", "max": "Maximum", "min": "Minimum",}
 
@@ -51,6 +73,9 @@ def aggregate_data(df, col_name, unit="", aggr_type="sum", so=st):
 current_year = datetime.datetime.now().year
 
 uploaded_file=None
+
+
+st.markdown("# Auswertung Heizsystem")
 
 with st.sidebar:
     st.markdown("# Einstellungen")
@@ -71,8 +96,9 @@ with st.sidebar:
 
 
 if start_analysis:
-    df_bk = process_df(bk_file, start_date, end_date)
-    df_wp = process_df(wp_file, start_date, end_date)
+    df_bk,first_ts_bk, last_ts_bk = process_df(bk_file, start_date, end_date, default_csv_name="WTC_default.csv")
+    df_wp, first_ts_wp, last_ts_wp = process_df(wp_file, start_date, end_date, default_csv_name="WWP_default.csv")
+    
 
     cols = st.columns(2)
 
@@ -82,6 +108,8 @@ if start_analysis:
 
     # Auswertung BK
     col_index = 0
+    cols[col_index].markdown(f"Erster gemessener Zeitschritt: {first_ts_bk}")
+    cols[col_index].markdown(f"Letzter gemessener Zeitschritt: {last_ts_bk}")
     aggregate_data(df_bk, "Istleistung Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_bk, "Wärmeleistung VPT Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
     cols[0].write(df_bk)
@@ -89,6 +117,8 @@ if start_analysis:
 
     # Ausewrtung WP
     col_index=1
+    cols[col_index].markdown(f"Erster gemessener Zeitschritt: {first_ts_wp}")
+    cols[col_index].markdown(f"Letzter gemessener Zeitschritt: {last_ts_wp}")
     aggregate_data(df_wp, "Ist Leistung[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_wp, "Leistungsabgabe[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
 
