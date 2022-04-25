@@ -97,6 +97,7 @@ with st.sidebar:
 if start_analysis:
     df_bk,first_ts_bk, last_ts_bk = process_df(bk_file, start_date, end_date, default_csv_name="WTC_default.csv")
     df_wp, first_ts_wp, last_ts_wp = process_df(wp_file, start_date, end_date, default_csv_name="WWP_default.csv")
+    df_wp.loc[:, "Leistungsabgabe[Wärmeerzeuger ]"] = df_wp.loc[:, "Leistungsabgabe[Wärmeerzeuger ]"]/1000 # W in kW
 
     cols = st.columns(2)
 
@@ -106,13 +107,13 @@ if start_analysis:
     # Auswertung BK
     col_index = 0
     actual_time_interval(first_ts_bk, last_ts_bk, so=cols[col_index])
-    aggregate_data(df_bk, "Istleistung Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
+    # aggregate_data(df_bk, "Istleistung Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_bk, "Wärmeleistung VPT Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
 
     # Ausewrtung WP
     col_index=1
     actual_time_interval(first_ts_wp, last_ts_wp, so=cols[col_index])
-    aggregate_data(df_wp, "Ist Leistung[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
+    # aggregate_data(df_wp, "Ist Leistung[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_wp, "Leistungsabgabe[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
 
 
@@ -120,17 +121,17 @@ if start_analysis:
     xvals = df_bk.index
 
     col_name = "Istleistung Aktuell[WE0]"
-    fig.add_trace(
-        go.Scatter(
-            x=xvals,
-            y=df_bk.loc[:, col_name],
-            name="BK_"+col_name,
-            line=dict(
-                #color=FZJcolor.get("black"), 
-                width=2,),
-            fillcolor="rgba(0, 0, 0, 0)",
-        )
-    )
+    # fig.add_trace(
+    #     go.Scatter(
+    #         x=xvals,
+    #         y=df_bk.loc[:, col_name],
+    #         name="BK_"+col_name,
+    #         line=dict(
+    #             #color=FZJcolor.get("black"), 
+    #             width=2,),
+    #         fillcolor="rgba(0, 0, 0, 0)",
+    #     )
+    # )
 
     col_name = "Wärmeleistung VPT Aktuell[WE0]"
     fig.add_trace(
@@ -146,18 +147,18 @@ if start_analysis:
     )
 
     xvals = df_wp.index
-    col_name = "Ist Leistung[Wärmeerzeuger ]"
-    fig.add_trace(
-        go.Scatter(
-            x=xvals,
-            y=df_wp.loc[:, col_name],
-            name="WP_"+col_name,
-            line=dict(
-                #color=FZJcolor.get("black"), 
-                width=2,),
-            fillcolor="rgba(0, 0, 0, 0)",
-        )
-    )
+    # col_name = "Ist Leistung[Wärmeerzeuger ]"
+    # fig.add_trace(
+    #     go.Scatter(
+    #         x=xvals,
+    #         y=df_wp.loc[:, col_name],
+    #         name="WP_"+col_name,
+    #         line=dict(
+    #             #color=FZJcolor.get("black"), 
+    #             width=2,),
+    #         fillcolor="rgba(0, 0, 0, 0)",
+    #     )
+    # )
 
     col_name = "Leistungsabgabe[Wärmeerzeuger ]"
     fig.add_trace(
@@ -169,7 +170,7 @@ if start_analysis:
                 #color=FZJcolor.get("black"), 
                 width=2,),
             fillcolor="rgba(0, 0, 0, 0)",
-            visible='legendonly',
+            # visible='legendonly',
         )
     )
 
