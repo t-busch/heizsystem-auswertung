@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 
 st.set_page_config(
      page_title="WEM Auswertung",
-     page_icon="🔥",
+     page_icon="🏠",
      layout="wide",
      initial_sidebar_state="expanded",
  )
@@ -66,7 +66,7 @@ def aggregate_data(df, col_name, unit="", aggr_type="sum", so=st):
 
 
 def actual_time_interval(first_ts, last_ts, so=st):
-    so.markdown(f"Realer Betrachtungszeitraum: {first_ts.strftime('%d.%m.%Y, %H:%M:%S')} bis {last_ts.strftime('%d.%m.%Y, %H:%M:%S')}")
+    so.info(f"Realer Betrachtungszeitraum:  \n {first_ts.strftime('%d.%m.%Y, %H:%M:%S')} bis {last_ts.strftime('%d.%m.%Y, %H:%M:%S')}")
 
 
 current_year = datetime.datetime.now().year
@@ -101,8 +101,8 @@ if start_analysis:
 
     cols = st.columns(2)
 
-    cols[0].markdown("## Brennwertkessel")
-    cols[1].markdown("## Wärmepumpe")
+    cols[0].markdown("## Brennwertkessel 🔥")
+    cols[1].markdown("## Wärmepumpe 🔌")
 
     # Auswertung BK
     col_index = 0
@@ -186,6 +186,7 @@ if start_analysis:
 
     st.plotly_chart(fig, use_container_width=True)
 
+    st.markdown("Rohdaten")
     cols = st.columns(2)
     cols[0].write(df_bk)
     cols[1].write(df_wp)
