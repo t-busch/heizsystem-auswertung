@@ -14,12 +14,7 @@ st.set_page_config(
  )
 
 
-
-
 TIME_PER_INTERVAL = 2/3*1/60 # kW in a 40s time interval to kWh 
-
-
-
 
 def create_date_index(df):
     df.index = [parser.parse(f"{row.Date} {row.Time}") for _, row in df.iterrows()]
@@ -112,7 +107,7 @@ if start_analysis:
     cols[col_index].markdown(f"Letzter gemessener Zeitschritt: {last_ts_bk}")
     aggregate_data(df_bk, "Istleistung Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_bk, "Wärmeleistung VPT Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
-    cols[0].write(df_bk)
+    cols[col_index].write(df_bk)
 
 
     # Ausewrtung WP
@@ -121,14 +116,4 @@ if start_analysis:
     cols[col_index].markdown(f"Letzter gemessener Zeitschritt: {last_ts_wp}")
     aggregate_data(df_wp, "Ist Leistung[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_wp, "Leistungsabgabe[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
-
-
-    # total_energy = df_wp.loc[:, "Ist Leistung[Wärmeerzeuger ]"].sum() * TIME_PER_INTERVAL
-    # total_energy = total_energy.round(1)
-    # cols[1].metric("Summe Ist Leistung[Wärmeerzeuger ]", f"{total_energy} kWh")
-
-    # total_energy1 = df_wp.loc[:, "Leistungsabgabe[Wärmeerzeuger ]'"].sum() * TIME_PER_INTERVAL
-    # total_energy1 = total_energy1.round(1)
-    # cols[1].metric("Summe Leistungsabgabe[Wärmeerzeuger ]'", f"{total_energy1} kWh")
-
-    cols[1].write(df_wp)
+    cols[col_index].write(df_wp)
