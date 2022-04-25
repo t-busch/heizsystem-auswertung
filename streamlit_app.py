@@ -41,7 +41,7 @@ def data_in_interval(df, start_date, end_date):
 
     return df, first_ts, last_ts
 
-def process_df(uploaded_file, start_date, end_date, default_csv_name=None):
+def proprocess_df(uploaded_file, start_date, end_date, default_csv_name=None):
     if uploaded_file is not None:
         df = file_to_df(uploaded_file, default_csv_name)
     else:
@@ -61,7 +61,10 @@ def aggregate_data(df, col_name, unit="", aggr_type="sum", so=st):
     aggr_val = float("NaN")
     if aggr_type == "sum":
         aggr_val = series_val.sum() * TIME_PER_INTERVAL
-        aggr_val = aggr_val.round(1)
+    elif aggr_type == "av":
+        aggr_val = series_val.mean()
+
+    aggr_val = aggr_val.round(1)
     so.metric(f"{agg_type_dict.get(aggr_type, '')}: {col_name}", f"{aggr_val} {unit}")
 
 
@@ -86,90 +89,81 @@ with st.sidebar:
 
     st.markdown("## Betrachtungszeitraum")
     cols = st.columns(2)
-    start_date = cols[0].date_input("von", value=datetime.date(current_year-1, 8, 1))
+    start_date = cols[0].date_input("von", value=datetime.date(current_year-1, 9, 1))
     start_date = datetime.datetime.fromordinal(start_date.toordinal())
-    end_date = cols[1].date_input("bis", value=datetime.date(current_year, 7, 31))
+    end_date = cols[1].date_input("bis", value=datetime.date(current_year, 8, 31))
     end_date = datetime.datetime.fromordinal(end_date.toordinal())
 
     start_analysis = st.button("Auswertung starten")
 
 
-if start_analysis:
-    df_bk,first_ts_bk, last_ts_bk = process_df(bk_file, start_date, end_date, default_csv_name="WTC_default.csv")
-    df_wp, first_ts_wp, last_ts_wp = process_df(wp_file, start_date, end_date, default_csv_name="WWP_default.csv")
-    df_wp.loc[:, "Leistungsabgabe[Wärmeerzeuger ]"] = df_wp.loc[:, "Leistungsabgabe[Wärmeerzeuger ]"]/1000 # W in kW
+def process_bk(df_raw):
+    df = pd.DataFrame(index=df_raw.index)
+    df.loc[:, "Wärmeleistung"] = df_raw.loc[:, "Wärmeleistung VPT Aktuell[WE0]"] # kW
+    df.loc[:, "Leistungsfaktor"] = df_raw.loc[:, "Istleistung Aktuell[WE0]"] # %
+
+    return df
+
+def process_wp(df_raw):
+    df = pd.DataFrame(index=df_raw.index)
+    df.loc[:, "Wärmeleistung"] = df_raw.loc[:, "Leistungsabgabe[Wärmeerzeuger ]"]/1000 # kW
+    df.loc[:, "Leistungsfaktor"] = df_raw.loc[:, "Ist Leistung[Wärmeerzeuger ]"] # %
+
+    return df
+
+
+if True: #start_analysis:
+    df_bk_raw, first_ts_bk, last_ts_bk = proprocess_df(bk_file, start_date, end_date, default_csv_name="WTC_default.csv")
+    df_bk = process_bk(df_bk_raw)
+
+    df_wp_raw, first_ts_wp, last_ts_wp = proprocess_df(wp_file, start_date, end_date, default_csv_name="WWP_default.csv")
+    df_wp = process_wp(df_wp_raw)
+
 
     cols = st.columns(2)
-
     cols[0].markdown("## Brennwertkessel 🔥")
     cols[1].markdown("## Wärmepumpe 🔌")
 
     # Auswertung BK
     col_index = 0
     actual_time_interval(first_ts_bk, last_ts_bk, so=cols[col_index])
-    # aggregate_data(df_bk, "Istleistung Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
-    aggregate_data(df_bk, "Wärmeleistung VPT Aktuell[WE0]", unit="kWh", aggr_type="sum", so=cols[col_index])
+    aggregate_data(df_bk, "Wärmeleistung", unit="kWh", aggr_type="sum", so=cols[col_index])
+    aggregate_data(df_bk, "Leistungsfaktor", unit="%", aggr_type="av", so=cols[col_index])
 
     # Ausewrtung WP
     col_index=1
     actual_time_interval(first_ts_wp, last_ts_wp, so=cols[col_index])
-    # aggregate_data(df_wp, "Ist Leistung[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
-    aggregate_data(df_wp, "Leistungsabgabe[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
+    aggregate_data(df_wp, "Wärmeleistung", unit="kWh", aggr_type="sum", so=cols[col_index])
+    aggregate_data(df_wp, "Leistungsfaktor", unit="%", aggr_type="av", so=cols[col_index])
 
 
+    # Absolute Leistung
     fig = go.Figure()
+    col_name = "Wärmeleistung"
+    
     xvals = df_bk.index
-
-    col_name = "Istleistung Aktuell[WE0]"
-    # fig.add_trace(
-    #     go.Scatter(
-    #         x=xvals,
-    #         y=df_bk.loc[:, col_name],
-    #         name="BK_"+col_name,
-    #         line=dict(
-    #             #color=FZJcolor.get("black"), 
-    #             width=2,),
-    #         fillcolor="rgba(0, 0, 0, 0)",
-    #     )
-    # )
-
-    col_name = "Wärmeleistung VPT Aktuell[WE0]"
     fig.add_trace(
         go.Scatter(
             x=xvals,
             y=df_bk.loc[:, col_name],
             name="BK_"+col_name,
-            line=dict(
-                #color=FZJcolor.get("black"), 
-                width=2,),
-            fillcolor="rgba(0, 0, 0, 0)",
+            # line=dict(
+            #     #color=FZJcolor.get("black"), 
+            #     width=2,),
+            # fillcolor="rgba(0, 0, 0, 0)",
         )
     )
 
     xvals = df_wp.index
-    # col_name = "Ist Leistung[Wärmeerzeuger ]"
-    # fig.add_trace(
-    #     go.Scatter(
-    #         x=xvals,
-    #         y=df_wp.loc[:, col_name],
-    #         name="WP_"+col_name,
-    #         line=dict(
-    #             #color=FZJcolor.get("black"), 
-    #             width=2,),
-    #         fillcolor="rgba(0, 0, 0, 0)",
-    #     )
-    # )
-
-    col_name = "Leistungsabgabe[Wärmeerzeuger ]"
     fig.add_trace(
         go.Scatter(
             x=xvals,
             y=df_wp.loc[:, col_name],
             name="WP_"+col_name,
-            line=dict(
-                #color=FZJcolor.get("black"), 
-                width=2,),
-            fillcolor="rgba(0, 0, 0, 0)",
+            # line=dict(
+            #     #color=FZJcolor.get("black"), 
+            #     width=2,),
+            # fillcolor="rgba(0, 0, 0, 0)",
             # visible='legendonly',
         )
     )
@@ -183,7 +177,47 @@ if start_analysis:
 
     st.plotly_chart(fig, use_container_width=True)
 
+
+
+    # Absolute Leistung
+    fig = go.Figure()
+    col_name = "Leistungsfaktor"
+    
+    xvals = df_bk.index
+    fig.add_trace(
+        go.Scatter(
+            x=xvals,
+            y=df_bk.loc[:, col_name],
+            name="BK_"+col_name,
+            line=dict(
+                #color=FZJcolor.get("black"), 
+                width=2,),
+            fillcolor="rgba(0, 0, 0, 0)",
+        )
+    )
+
+    xvals = df_wp.index
+    fig.add_trace(
+        go.Scatter(
+            x=xvals,
+            y=df_wp.loc[:, col_name],
+            name="WP_"+col_name,
+            line=dict(
+                #color=FZJcolor.get("black"), 
+                width=2,),
+            fillcolor="rgba(0, 0, 0, 0)",
+        )
+    )
+
+    fig.update_layout(
+        title=f"Leistung (relativ)",
+        yaxis_title="Leistungsfaktor [%]",
+        yaxis_range=[0, 100],
+        # xaxis_range=[start_date, end_date],
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
     st.markdown("### Rohdaten")
     cols = st.columns(2)
-    cols[0].write(df_bk)
-    cols[1].write(df_wp)
+    cols[0].write(df_bk_raw)
+    cols[1].write(df_wp_raw)
