@@ -90,9 +90,9 @@ with st.sidebar:
     st.markdown("## Betrachtungszeitraum")
     cols = st.columns(2)
     start_date = cols[0].date_input("von", value=datetime.date(current_year-1, 9, 1))
-    start_date = datetime.datetime.fromordinal(start_date.toordinal())
+    start_date = datetime.datetime.fromordinal(start_date.toordinal())+datetime.timedelta(hours=0, minutes=0, seconds=0)
     end_date = cols[1].date_input("bis", value=datetime.date(current_year, 8, 31))
-    end_date = datetime.datetime.fromordinal(end_date.toordinal())
+    end_date = datetime.datetime.fromordinal(end_date.toordinal())+datetime.timedelta(hours=23, minutes=59, seconds=59)
 
     start_analysis = st.button("Auswertung starten")
 
