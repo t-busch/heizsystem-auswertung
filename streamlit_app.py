@@ -4,7 +4,7 @@ from io import BytesIO
 from io import StringIO
 import datetime
 from dateutil import parser
-
+import plotly.graph_objects as go
 
 st.set_page_config(
      page_title="WEM Auswertung",
@@ -62,7 +62,7 @@ def aggregate_data(df, col_name, unit="", aggr_type="sum", so=st):
     if aggr_type == "sum":
         aggr_val = series_val.sum() * TIME_PER_INTERVAL
         aggr_val = aggr_val.round(1)
-    so.metric(f"{agg_type_dict.get(aggr_type, '')} {col_name}", f"{aggr_val} {unit}")
+    so.metric(f"{agg_type_dict.get(aggr_type, '')}: {col_name}", f"{aggr_val} {unit}")
 
 
 current_year = datetime.datetime.now().year
@@ -99,7 +99,6 @@ if start_analysis:
 
     cols[0].markdown("## Brennwertkessel")
     cols[1].markdown("## Wärmepumpe")
-    print(df_wp.columns)
 
     # Auswertung BK
     col_index = 0
@@ -117,3 +116,69 @@ if start_analysis:
     aggregate_data(df_wp, "Ist Leistung[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
     aggregate_data(df_wp, "Leistungsabgabe[Wärmeerzeuger ]", unit="kWh", aggr_type="sum", so=cols[col_index])
     cols[col_index].write(df_wp)
+
+
+    fig = go.Figure()
+    xvals = df_bk.index
+
+    col_name = "Istleistung Aktuell[WE0]"
+    fig.add_trace(
+        go.Scatter(
+            x=xvals,
+            y=df_bk.loc[:, col_name],
+            name="BK_"+col_name,
+            line=dict(
+                #color=FZJcolor.get("black"), 
+                width=2,),
+            fillcolor="rgba(0, 0, 0, 0)",
+        )
+    )
+
+    col_name = "Wärmeleistung VPT Aktuell[WE0]"
+    fig.add_trace(
+        go.Scatter(
+            x=xvals,
+            y=df_bk.loc[:, col_name],
+            name="BK_"+col_name,
+            line=dict(
+                #color=FZJcolor.get("black"), 
+                width=2,),
+            fillcolor="rgba(0, 0, 0, 0)",
+        )
+    )
+
+    xvals = df_wp.index
+    col_name = "Ist Leistung[Wärmeerzeuger ]"
+    fig.add_trace(
+        go.Scatter(
+            x=xvals,
+            y=df_wp.loc[:, col_name],
+            name="WP_"+col_name,
+            line=dict(
+                #color=FZJcolor.get("black"), 
+                width=2,),
+            fillcolor="rgba(0, 0, 0, 0)",
+        )
+    )
+
+    col_name = "Leistungsabgabe[Wärmeerzeuger ]"
+    fig.add_trace(
+        go.Scatter(
+            x=xvals,
+            y=df_wp.loc[:, col_name],
+            name="WP_"+col_name,
+            line=dict(
+                #color=FZJcolor.get("black"), 
+                width=2,),
+            fillcolor="rgba(0, 0, 0, 0)",
+        )
+    )
+
+    fig.update_layout(
+        title=f"Wärmeleistung",
+        yaxis_title="Leistung [kW]",
+        # yaxis_range=[0, 1200],
+        # xaxis_range=[start_date, end_date],
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
