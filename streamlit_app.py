@@ -114,7 +114,7 @@ def process_wp(df_raw):
 
 def temp_power(df):
     df_res = pd.DataFrame({"Außentemperatur": df.loc[:, "Außentemperatur"], "Wärmeleistung": df.loc[:, "Wärmeleistung"]})
-    df_res.sort_values("Außentemperatur", axis=0, inplace=True)
+    df_res = df_res.groupby(by="Außentemperatur", axis=0, sort=True).sum()
     return df_res
 
 if True: #start_analysis:
@@ -261,14 +261,17 @@ if True: #start_analysis:
 
 
     # Temperatur-Leistung
+
+    # TODO Group by temperature and apply sum()
     fig = go.Figure()
 
     temp_power_bk = temp_power(df_bk)
+    sum_bk = temp_power_bk.loc[:, "Wärmeleistung"].sum()*TIME_PER_INTERVAL
     fig.add_trace(
         go.Scatter(
-            x=temp_power_bk.loc[:, "Außentemperatur"],
+            x=temp_power_bk.index,
             y=temp_power_bk.loc[:, "Wärmeleistung"],
-            name="BK_Wärmeleistung",
+            name=f"BK_Wärmeleistung {sum_bk}",
             # line=dict(
             #     #color=FZJcolor.get("black"), 
             #     width=2,),
@@ -278,11 +281,12 @@ if True: #start_analysis:
     )
 
     temp_power_wp = temp_power(df_wp)
+    sum_wp = temp_power_wp.loc[:, "Wärmeleistung"].sum()*TIME_PER_INTERVAL
     fig.add_trace(
         go.Scatter(
-            x=temp_power_wp.loc[:, "Außentemperatur"],
+            x=temp_power_wp.index,
             y=temp_power_wp.loc[:, "Wärmeleistung"],
-            name="WP_Wärmeleistung",
+            name=f"WP_Wärmeleistung {sum_wp}",
             # line=dict(
             #     #color=FZJcolor.get("black"), 
             #     width=2,),
@@ -293,7 +297,7 @@ if True: #start_analysis:
 
     fig.update_layout(
         title=f"Wärmeleistung vs. Außentemperatur",
-        yaxis_title="Wärmeleistung [kWh]",
+        yaxis_title="Wärmeleistung [kW]",
         xaxis_title="Außentemperatur [°C]",
         # yaxis_range=[0, 100],
         # xaxis_range=[start_date, end_date],
