@@ -101,22 +101,29 @@ def process_bk(df_raw):
     df = pd.DataFrame(index=df_raw.index)
     df.loc[:, "Wärmeleistung"] = df_raw.loc[:, "Wärmeleistung VPT Aktuell[WE0]"] # kW
     df.loc[:, "Leistungsfaktor"] = df_raw.loc[:, "Istleistung Aktuell[WE0]"] # %
-
+    df.loc[:, "Außentemperatur"] = df_raw.loc[:, "Außentemperatur Aktuell[SYSTEM0]"] # °C
     return df
 
 def process_wp(df_raw):
     df = pd.DataFrame(index=df_raw.index)
     df.loc[:, "Wärmeleistung"] = df_raw.loc[:, "Leistungsabgabe[Wärmeerzeuger ]"]/1000 # kW
     df.loc[:, "Leistungsfaktor"] = df_raw.loc[:, "Ist Leistung[Wärmeerzeuger ]"] # %
-
+    df.loc[:, "Außentemperatur"] = df_raw.loc[:, "Außentemperatur[Wärmeerzeuger ]"] # %
     return df
 
 
+def temp_power(df):
+    df_res = pd.DataFrame({"Außentemperatur": df.loc[:, "Außentemperatur"], "Wärmeleistung": df.loc[:, "Wärmeleistung"]})
+    df_res.sort_values("Außentemperatur", axis=0, inplace=True)
+    return df_res
+
 if True: #start_analysis:
     df_bk_raw, first_ts_bk, last_ts_bk = proprocess_df(bk_file, start_date, end_date, default_csv_name="WTC_default.csv")
+    st.write(df_bk_raw.columns)
     df_bk = process_bk(df_bk_raw)
 
     df_wp_raw, first_ts_wp, last_ts_wp = proprocess_df(wp_file, start_date, end_date, default_csv_name="WWP_default.csv")
+    st.write(df_wp_raw.columns)
     df_wp = process_wp(df_wp_raw)
 
 
@@ -169,8 +176,8 @@ if True: #start_analysis:
     )
 
     fig.update_layout(
-        title=f"Wärmebereitstellung",
-        yaxis_title="Leistung [kW]",
+        title=f"Wärmeleistung",
+        yaxis_title="Wärmeleistung [kW]",
         # yaxis_range=[0, 1200],
         # xaxis_range=[start_date, end_date],
     )
@@ -178,8 +185,42 @@ if True: #start_analysis:
     st.plotly_chart(fig, use_container_width=True)
 
 
+    # Wärmeleistung ges
+    fig = go.Figure()
+    col_name = "Wärmeleistung"
+    
+    xvals = df_bk.index
+    fig.add_trace(
+        go.Scatter(
+            x=xvals,
+            y=df_bk.loc[:, col_name],
+            name="BK_"+col_name,
+            stackgroup="one",
+            mode="none",
+        )
+    )
 
-    # Absolute Leistung
+    xvals = df_wp.index
+    fig.add_trace(
+        go.Scatter(
+            x=xvals,
+            y=df_wp.loc[:, col_name],
+            name="WP_"+col_name,
+            stackgroup="one",
+            mode="none",
+        )
+    )
+
+    fig.update_layout(
+        title=f"Wärmeleistung (gesamt)",
+        yaxis_title="Wärmeleistung [kW]",
+        # yaxis_range=[0, 1200],
+        # xaxis_range=[start_date, end_date],
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Relative Leistung
     fig = go.Figure()
     col_name = "Leistungsfaktor"
     
@@ -210,12 +251,55 @@ if True: #start_analysis:
     )
 
     fig.update_layout(
-        title=f"Leistung (relativ)",
+        title=f"Leistungsfaktor",
         yaxis_title="Leistungsfaktor [%]",
         yaxis_range=[0, 100],
         # xaxis_range=[start_date, end_date],
     )
     st.plotly_chart(fig, use_container_width=True)
+
+
+
+    # Temperatur-Leistung
+    fig = go.Figure()
+
+    temp_power_bk = temp_power(df_bk)
+    fig.add_trace(
+        go.Scatter(
+            x=temp_power_bk.loc[:, "Außentemperatur"],
+            y=temp_power_bk.loc[:, "Wärmeleistung"],
+            name="BK_Wärmeleistung",
+            # line=dict(
+            #     #color=FZJcolor.get("black"), 
+            #     width=2,),
+            stackgroup="one",
+            mode="none",
+        )
+    )
+
+    temp_power_wp = temp_power(df_wp)
+    fig.add_trace(
+        go.Scatter(
+            x=temp_power_wp.loc[:, "Außentemperatur"],
+            y=temp_power_wp.loc[:, "Wärmeleistung"],
+            name="WP_Wärmeleistung",
+            # line=dict(
+            #     #color=FZJcolor.get("black"), 
+            #     width=2,),
+            stackgroup="one",
+            mode="none",
+        )
+    )
+
+    fig.update_layout(
+        title=f"Wärmeleistung vs. Außentemperatur",
+        yaxis_title="Wärmeleistung [kWh]",
+        xaxis_title="Außentemperatur [°C]",
+        # yaxis_range=[0, 100],
+        # xaxis_range=[start_date, end_date],
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
 
     st.markdown("### Rohdaten")
     cols = st.columns(2)
