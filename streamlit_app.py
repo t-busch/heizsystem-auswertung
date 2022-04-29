@@ -266,12 +266,11 @@ if True: #start_analysis:
     fig = go.Figure()
 
     temp_power_bk = temp_power(df_bk)
-    sum_bk = temp_power_bk.loc[:, "Wärmeleistung"].sum()*TIME_PER_INTERVAL
     fig.add_trace(
         go.Scatter(
             x=temp_power_bk.index,
             y=temp_power_bk.loc[:, "Wärmeleistung"],
-            name=f"BK_Wärmeleistung {sum_bk}",
+            name=f"BK_Wärmeleistung",
             # line=dict(
             #     #color=FZJcolor.get("black"), 
             #     width=2,),
@@ -281,12 +280,11 @@ if True: #start_analysis:
     )
 
     temp_power_wp = temp_power(df_wp)
-    sum_wp = temp_power_wp.loc[:, "Wärmeleistung"].sum()*TIME_PER_INTERVAL
     fig.add_trace(
         go.Scatter(
             x=temp_power_wp.index,
             y=temp_power_wp.loc[:, "Wärmeleistung"],
-            name=f"WP_Wärmeleistung {sum_wp}",
+            name=f"WP_Wärmeleistung",
             # line=dict(
             #     #color=FZJcolor.get("black"), 
             #     width=2,),
