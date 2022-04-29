@@ -119,11 +119,11 @@ def temp_power(df):
 
 if True: #start_analysis:
     df_bk_raw, first_ts_bk, last_ts_bk = proprocess_df(bk_file, start_date, end_date, default_csv_name="WTC_default.csv")
-    st.write(df_bk_raw.columns)
+    # st.write(df_bk_raw.columns)
     df_bk = process_bk(df_bk_raw)
 
     df_wp_raw, first_ts_wp, last_ts_wp = proprocess_df(wp_file, start_date, end_date, default_csv_name="WWP_default.csv")
-    st.write(df_wp_raw.columns)
+    # st.write(df_wp_raw.columns)
     df_wp = process_wp(df_wp_raw)
 
 
