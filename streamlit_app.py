@@ -17,6 +17,7 @@ st.set_page_config(
 TIME_PER_INTERVAL = 2/3*1/60 # kW in a 40s time interval to kWh 
 
 def create_date_index(df):
+    # TODO not recognizing date correctly, manuelle funktion
     df.index = [parser.parse(f"{row.Date} {row.Time}") for _, row in df.iterrows()]
     return df
 
@@ -33,11 +34,19 @@ def file_to_df(uploaded_file, default_csv_name):
     return df
 
 def data_in_interval(df, start_date, end_date):
+    df.sort_index(axis=0, inplace=True)
     df = df.loc[df.index>start_date, :]
     df = df.loc[df.index<=end_date, :]
 
+    print(min(df.index))
+    print(min(df.index) in df.index)
+    print(max(df.index))
+    print(max(df.index) in df.index)
+    print(df.index)
+
     first_ts = max(min(df.index), start_date)
     last_ts = min(max(df.index), end_date)
+    
 
     return df, first_ts, last_ts
 
@@ -225,6 +234,7 @@ if True: #start_analysis:
     col_name = "Leistungsfaktor"
     
     xvals = df_bk.index
+    print(xvals)
     fig.add_trace(
         go.Scatter(
             x=xvals,
@@ -306,4 +316,6 @@ if True: #start_analysis:
     st.markdown("### Rohdaten")
     cols = st.columns(2)
     cols[0].write(df_bk_raw)
+    cols[0].write(df_bk)
     cols[1].write(df_wp_raw)
+    cols[1].write(df_wp)
