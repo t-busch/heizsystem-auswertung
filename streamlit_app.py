@@ -31,7 +31,6 @@ def create_date(date, time):
 
 
 def create_date_index(df):
-    # TODO not recognizing date correctly, manuelle funktion
     df.index = [create_date(row.Date, row.Time) for _, row in df.iterrows()]
     return df
 
@@ -54,19 +53,13 @@ def data_in_interval(df, start_date, end_date):
     df = df.loc[df.index > start_date, :]
     df = df.loc[df.index <= end_date, :]
 
-    print(min(df.index))
-    print(min(df.index) in df.index)
-    print(max(df.index))
-    print(max(df.index) in df.index)
-    print(df.index)
-
     first_ts = max(min(df.index), start_date)
     last_ts = min(max(df.index), end_date)
 
     return df, first_ts, last_ts
 
 
-def proprocess_df(uploaded_file, start_date, end_date, default_csv_name=None):
+def preprocess_df(uploaded_file, start_date, end_date, default_csv_name=None):
     if uploaded_file is not None:
         df = file_to_df(uploaded_file, default_csv_name)
     else:
@@ -80,6 +73,27 @@ def proprocess_df(uploaded_file, start_date, end_date, default_csv_name=None):
     return df, first_ts, last_ts
 
 
+def interpolate_timesteps(df_base, df_interpol):
+    df_base.loc[:, "Timestamp"] = df_base.index
+    df_base = df_base.append(
+        pd.DataFrame({"Timestamp": list(df_interpol.index)}), ignore_index=True
+    )
+    df_base.index = df_base.loc[:, "Timestamp"]
+    df_base.sort_index(inplace=True)
+    del df_base["Timestamp"]
+    for col in df_base.columns:
+        df_base.loc[:, col] = df_base.loc[:, col].interpolate()
+    df_base.fillna(0, inplace=True)
+    return df_base
+
+
+def harmonize_timesteps(df_bk, df_wp):
+    # all_timesteps = list(df_wp.index) + list(df_bk.index)
+    df_bk = interpolate_timesteps(df_bk, df_wp)
+    df_wp = interpolate_timesteps(df_wp, df_bk)
+    return df_bk, df_wp
+
+
 agg_type_dict = {
     "sum": "Summe",
     "av": "Mittelwert",
@@ -90,13 +104,13 @@ agg_type_dict = {
 
 def aggregate_data(df, col_name, unit="", aggr_type="sum", so=st):
     series_val = df.loc[:, col_name]
+    timedelta = df.loc[:, "Timedelta"]
     aggr_val = float("NaN")
     if aggr_type == "sum":
-        aggr_val = series_val.sum() * TIME_PER_INTERVAL
+        aggr_val = sum(series_val * timedelta)
     elif aggr_type == "av":
-        aggr_val = series_val.mean()
+        aggr_val = sum(series_val * timedelta) / timedelta.sum()
 
-    print(aggr_val)
     aggr_val = round(aggr_val, 1)
     so.metric(f"{agg_type_dict.get(aggr_type, '')}: {col_name}", f"{aggr_val} {unit}")
 
@@ -164,25 +178,39 @@ def temp_power(df):
     df_res = pd.DataFrame(
         {
             "Außentemperatur": df.loc[:, "Außentemperatur"],
-            "Wärmeleistung": df.loc[:, "Wärmeleistung"],
+            "Wärmeleistung": df.loc[:, "Wärmeleistung"] * df.loc[:, "Timedelta"],
         }
     )
     df_res = df_res.groupby(by="Außentemperatur", axis=0, sort=True).sum()
     return df_res
 
 
+def add_timedelta(df):
+    timestep = list(df.index)
+    timedelta = [timestep[n + 1] - timestep[n] for n in range(len(timestep) - 1)]
+    timedelta = [x.seconds / 3600 for x in timedelta] + [TIME_PER_INTERVAL]
+    df.loc[:, "Timedelta"] = timedelta
+    return df
+
+
 if True:  # start_analysis:
-    df_bk_raw, first_ts_bk, last_ts_bk = proprocess_df(
+    df_bk_raw, first_ts_bk, last_ts_bk = preprocess_df(
         bk_file, start_date, end_date, default_csv_name="WTC_default.csv"
     )
     # st.write(df_bk_raw.columns)
     df_bk = process_bk(df_bk_raw)
 
-    df_wp_raw, first_ts_wp, last_ts_wp = proprocess_df(
+    df_wp_raw, first_ts_wp, last_ts_wp = preprocess_df(
         wp_file, start_date, end_date, default_csv_name="WWP_default.csv"
     )
     # st.write(df_wp_raw.columns)
     df_wp = process_wp(df_wp_raw)
+
+    df_bk, df_wp = harmonize_timesteps(df_bk, df_wp)
+
+    # Add Timedelta
+    df_bk = add_timedelta(df_bk)
+    df_wp = add_timedelta(df_wp)
 
     cols = st.columns(2)
     cols[0].markdown("## Brennwertkessel 🔥")
@@ -277,7 +305,7 @@ if True:  # start_analysis:
     fig.update_layout(
         title=f"Wärmeleistung (gesamt)",
         yaxis_title="Wärmeleistung [kW]",
-        # yaxis_range=[0, 1200],
+        yaxis_range=[0, 20],
         # xaxis_range=[start_date, end_date],
     )
 
@@ -288,7 +316,6 @@ if True:  # start_analysis:
     col_name = "Leistungsfaktor"
 
     xvals = df_bk.index
-    print(xvals)
     fig.add_trace(
         go.Scatter(
             x=xvals,
