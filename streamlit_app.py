@@ -5,6 +5,7 @@ from io import StringIO
 import datetime
 from dateutil import parser
 import plotly.graph_objects as go
+import numpy as np
 
 st.set_page_config(
     page_title="WEM Auswertung",
@@ -94,15 +95,13 @@ def harmonize_timesteps(df_bk, df_wp):
     return df_bk, df_wp
 
 
-agg_type_dict = {
-    "sum": "Summe",
-    "av": "Mittelwert",
-    "max": "Maximum",
-    "min": "Minimum",
-}
-
-
 def aggregate_data(df, col_name, unit="", aggr_type="sum", so=st):
+    agg_type_dict = {
+        "sum": "Summe",
+        "av": "Mittelwert",
+        "max": "Maximum",
+        "min": "Minimum",
+    }
     series_val = df.loc[:, col_name]
     timedelta = df.loc[:, "Timedelta"]
     aggr_val = float("NaN")
@@ -142,10 +141,14 @@ with st.sidebar:
 
     st.markdown("## Betrachtungszeitraum")
     cols = st.columns(2)
+
+    # Start at the beginning of the day (00:00:00)
     start_date = cols[0].date_input("von", value=datetime.date(current_year - 1, 9, 1))
     start_date = datetime.datetime.fromordinal(
         start_date.toordinal()
     ) + datetime.timedelta(hours=0, minutes=0, seconds=0)
+
+    # Stop at the end of the day (23:59:59)
     end_date = cols[1].date_input("bis", value=datetime.date(current_year, 8, 31))
     end_date = datetime.datetime.fromordinal(end_date.toordinal()) + datetime.timedelta(
         hours=23, minutes=59, seconds=59
@@ -175,13 +178,13 @@ def process_wp(df_raw):
 
 
 def temp_power(df):
-    df_res = pd.DataFrame(
-        {
-            "Außentemperatur": df.loc[:, "Außentemperatur"],
-            "Wärmeleistung": df.loc[:, "Wärmeleistung"] * df.loc[:, "Timedelta"],
-        }
-    )
-    df_res = df_res.groupby(by="Außentemperatur", axis=0, sort=True).sum()
+    # df_res = pd.DataFrame(
+    #     {
+    #         "Außentemperatur": df.loc[:, "Außentemperatur"],
+    #         "Wärmeleistung": df.loc[:, "Wärmeleistung"] * df.loc[:, "Timedelta"],
+    #     }
+    # )
+    df_res = df.groupby(level=0, sort=True).sum()  # by="Außentemperatur" axis=0,
     return df_res
 
 
@@ -193,19 +196,55 @@ def add_timedelta(df):
     return df
 
 
+def interpolate_temp(df, step):
+    col_interpol = "Außentemperatur"
+    df.loc[:, "Wärmemenge"] = df.loc[:, "Wärmeleistung"] * TIME_PER_INTERVAL
+    if step:
+        temps = df.loc[:, col_interpol]
+        temps_interpol = np.arange(min(temps), max(temps), step)
+
+        # exclude duplicates
+        temps_interpol = [temp for temp in temps_interpol if temp not in temps]
+
+        # add interpolated timesteps
+        df_interpol = df.append(
+            pd.DataFrame({col_interpol: list(temps_interpol)}), ignore_index=True
+        )
+    else:
+        df_interpol = df.copy()
+
+    # set temps as index
+    df_interpol.index = df_interpol.loc[:, col_interpol]
+    df_interpol.sort_index(inplace=True)
+    del df_interpol[col_interpol]
+
+    # apply interpolation
+    for col in df_interpol.columns:
+        scalefac = sum(df.loc[:, col]) / sum(df_interpol.loc[:, col])
+        df_interpol.loc[:, col] = df_interpol.loc[:, col].interpolate() * scalefac
+    df_interpol.fillna(0, inplace=True)
+    return df_interpol
+
+
 if True:  # start_analysis:
+    # Data preprocessing
     df_bk_raw, first_ts_bk, last_ts_bk = preprocess_df(
         bk_file, start_date, end_date, default_csv_name="WTC_default.csv"
     )
-    # st.write(df_bk_raw.columns)
-    df_bk = process_bk(df_bk_raw)
 
     df_wp_raw, first_ts_wp, last_ts_wp = preprocess_df(
         wp_file, start_date, end_date, default_csv_name="WWP_default.csv"
     )
-    # st.write(df_wp_raw.columns)
+
+    # Data processing
+    df_bk = process_bk(df_bk_raw)
     df_wp = process_wp(df_wp_raw)
 
+    # Temp Power Data
+    df_temp_bk = interpolate_temp(df_bk, 0.1)
+    df_temp_wp = interpolate_temp(df_wp, 0.1)
+
+    # Interpolate Timesteps
     df_bk, df_wp = harmonize_timesteps(df_bk, df_wp)
 
     # Add Timedelta
@@ -352,16 +391,16 @@ if True:  # start_analysis:
     st.plotly_chart(fig, use_container_width=True)
 
     # Temperatur-Leistung
+    # TODO Besser als scatter plot
 
-    # TODO Group by temperature and apply sum()
     fig = go.Figure()
 
-    temp_power_bk = temp_power(df_bk)
+    temp_power_bk = temp_power(df_temp_bk)
     fig.add_trace(
         go.Scatter(
             x=temp_power_bk.index,
-            y=temp_power_bk.loc[:, "Wärmeleistung"],
-            name=f"BK_Wärmeleistung",
+            y=temp_power_bk.loc[:, "Wärmemenge"],
+            name=f"BK_Wärmemenge",
             # line=dict(
             #     #color=FZJcolor.get("black"),
             #     width=2,),
@@ -370,12 +409,13 @@ if True:  # start_analysis:
         )
     )
 
-    temp_power_wp = temp_power(df_wp)
+    temp_power_wp = temp_power(df_temp_wp)
+    print(temp_power_wp.head())
     fig.add_trace(
         go.Scatter(
             x=temp_power_wp.index,
-            y=temp_power_wp.loc[:, "Wärmeleistung"],
-            name=f"WP_Wärmeleistung",
+            y=temp_power_wp.loc[:, "Wärmemenge"],
+            name=f"WP_Wärmemenge",
             # line=dict(
             #     #color=FZJcolor.get("black"),
             #     width=2,),
@@ -385,8 +425,8 @@ if True:  # start_analysis:
     )
 
     fig.update_layout(
-        title=f"Wärmeleistung vs. Außentemperatur",
-        yaxis_title="Wärmeleistung [kW]",
+        title=f"Wärmemenge vs. Außentemperatur",
+        yaxis_title="Wärmemenge [kWh]",
         xaxis_title="Außentemperatur [°C]",
         # yaxis_range=[0, 100],
         # xaxis_range=[start_date, end_date],
